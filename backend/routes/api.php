@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\WebhookController;
+use App\Services\ProductService;
 use Illuminate\Support\Facades\Route;
 
 // API info at root
@@ -10,6 +11,7 @@ Route::get('/', function () {
         'name' => config('app.name'),
         'status' => 'running',
         'endpoints' => [
+            'products' => 'GET /api/products',
             'checkout' => 'POST /api/checkout',
             'webhook' => 'POST /api/payments/webhook',
             'order_success' => 'GET /order/success',
@@ -17,6 +19,25 @@ Route::get('/', function () {
             'health' => 'GET /up',
         ],
     ]);
+});
+
+// Product catalog — list all active products
+Route::get('/products', function (ProductService $productService) {
+    $locale = request()->query('locale', 'lt');
+    $products = $productService->getAllProducts();
+
+    return response()->json($products->map(fn ($p) => [
+        'code' => $p->code,
+        'badge' => $p->localizedBadge($locale),
+        'title' => $p->localizedTitle($locale),
+        'description' => $p->localizedDescription($locale),
+        'meta' => $p->localizedMeta($locale),
+        'price_display' => $p->localizedPrice($locale),
+        'price_cents' => $p->price_cents,
+        'payable' => $p->payable,
+        'requires_shipping' => $p->requires_shipping,
+        'sort_order' => $p->sort_order,
+    ]));
 });
 
 // Checkout — validates cart and creates payment

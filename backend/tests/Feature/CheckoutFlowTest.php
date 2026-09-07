@@ -15,6 +15,12 @@ class CheckoutFlowTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->seed(\Database\Seeders\ProductSeeder::class);
+    }
+
     public function test_checkout_creates_order_and_returns_redirect(): void
     {
         // Mock the payment provider

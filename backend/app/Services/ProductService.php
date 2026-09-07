@@ -2,20 +2,30 @@
 
 namespace App\Services;
 
+use App\Models\Product;
 use InvalidArgumentException;
 
 class ProductService
 {
     /**
-     * Get a product's configuration by code.
+     * Get a product by code from the database.
      *
      * @param  string  $code
-     * @return array|null
+     * @return Product|null
      */
-    public function getProduct(string $code): ?array
+    public function getProduct(string $code): ?Product
     {
-        $catalog = config('products');
-        return $catalog[$code] ?? null;
+        return Product::where('code', $code)->where('is_active', true)->first();
+    }
+
+    /**
+     * Get all active products, ordered by sort_order.
+     *
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
+    public function getAllProducts()
+    {
+        return Product::active()->get();
     }
 
     /**
@@ -31,7 +41,7 @@ class ProductService
         if (!$product) {
             throw new InvalidArgumentException("Unknown product code: {$code}");
         }
-        return $product['title'][$locale] ?? $product['title']['en'];
+        return $product->localizedTitle($locale);
     }
 
     /**
@@ -46,7 +56,7 @@ class ProductService
         if (!$product) {
             throw new InvalidArgumentException("Unknown product code: {$code}");
         }
-        return $product['price_cents'];
+        return $product->price_cents;
     }
 
     /**
@@ -58,7 +68,7 @@ class ProductService
     public function isPayable(string $code): bool
     {
         $product = $this->getProduct($code);
-        return $product && $product['payable'];
+        return $product && $product->payable;
     }
 
     /**
@@ -70,7 +80,7 @@ class ProductService
     public function requiresShipping(string $code): bool
     {
         $product = $this->getProduct($code);
-        return $product && $product['requires_shipping'];
+        return $product && $product->requires_shipping;
     }
 
     /**
