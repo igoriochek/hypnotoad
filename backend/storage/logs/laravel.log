@@ -2116,3 +2116,10 @@ Did you mean one of these?
 [2026-09-07 15:57:34] testing.ERROR: Webhook signature verification failed {"event_id":"evt-bad-sig","order_number":"SHK-TEST-001","provider":"montonio"} 
 [2026-09-07 15:57:34] testing.ERROR: Webhook amount mismatch {"event_id":"evt-mismatch","order_number":"SHK-TEST-001","expected":13200,"received":9999} 
 [2026-09-07 15:57:34] testing.ERROR: Webhook for unknown order {"event_id":"evt-unknown","order_number":"SHK-NONEXISTENT"} 
+[2026-09-07 16:29:15] testing.INFO: Webhook processed {"event_id":"evt-001","order_number":"SHK-TEST-001","status":"paid","verified":true} 
+[2026-09-07 16:29:15] testing.INFO: Duplicate webhook event ignored (idempotent) {"event_id":"evt-001","order_id":1} 
+[2026-09-07 16:29:15] testing.ERROR: Webhook signature verification failed {"event_id":"evt-bad-sig","order_number":"SHK-TEST-001","provider":"montonio"} 
+[2026-09-07 16:29:15] testing.ERROR: Webhook amount mismatch {"event_id":"evt-mismatch","order_number":"SHK-TEST-001","expected":13200,"received":9999} 
+[2026-09-07 16:29:15] testing.ERROR: Webhook for unknown order {"event_id":"evt-unknown","order_number":"SHK-NONEXISTENT"} 
+[2026-09-07 16:32:52] local.ERROR: Montonio request failed {"error":"cURL error 6: Could not resolve host: api.montonio.com (see https://curl.se/libcurl/c/libcurl-errors.html) for https://api.montonio.com/v2/payments","order":"SHK-20260907-GOQUXO"} 
+[2026-09-07 16:32:52] local.ERROR: Checkout payment creation failed {"order":"SHK-20260907-GOQUXO","error":"Montonio request failed: cURL error 6: Could not resolve host: api.montonio.com (see https://curl.se/libcurl/c/libcurl-errors.html) for https://api.montonio.com/v2/payments"} 

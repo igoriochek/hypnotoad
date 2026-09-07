@@ -62,7 +62,7 @@ export function ShopSite({ lang }: { lang: Locale }) {
         </div>
       </section>
 
-      <ShopCatalog lang={lang} products={t.shop.products} note={t.shop.note} sectionLabel={t.shop.eyebrow} />
+      <ShopCatalog lang={lang} note={t.shop.note} sectionLabel={t.shop.eyebrow} />
 
       <section className="shop-callout">
         <div><p className="kicker kicker-light">{t.conversation.kicker}</p><h2>{t.conversation.title}</h2></div>

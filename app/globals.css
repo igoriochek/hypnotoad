@@ -397,7 +397,14 @@ footer > p:last-child { white-space: nowrap; }
 .cart-quantity { display: flex; align-items: center; gap: 8px; }
 .cart-quantity button { display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid var(--line); border-radius: 50%; background: var(--paper); cursor: pointer; }
 .cart-quantity .cart-remove { margin-left: 4px; color: #8a3d3d; }
-.cart-send { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 54px; margin-top: auto; padding: 0 20px; border-radius: 999px; background: var(--forest); color: white; font-size: 12px; font-weight: 800; }
+.cart-send { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 54px; margin-top: auto; padding: 0 20px; border-radius: 999px; background: var(--forest); color: white; font-size: 12px; font-weight: 800; cursor: pointer; border: none; width: 100%; text-decoration: none; }
+.cart-send:hover { background: var(--forest-deep); transform: translateY(-2px); }
+.cart-send:disabled { opacity: 0.6; cursor: wait; transform: none; }
+.cart-checkout-form { display: grid; gap: 10px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+.cart-checkout-form input { min-height: 44px; padding: 0 14px; border: 1px solid var(--line); border-radius: 8px; background: white; color: var(--ink); font-size: 14px; font-family: inherit; }
+.cart-checkout-form input:focus { outline: none; border-color: var(--forest); box-shadow: 0 0 0 2px rgba(43,74,58,0.1); }
+.cart-error { color: #c0392b; font-size: 13px; line-height: 1.5; margin: 0; }
+.cart-warning { color: #b8860b; font-size: 13px; line-height: 1.5; margin: 0; }
 .shop-callout { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 40px; max-width: 1420px; margin: 0 auto clamp(70px, 9vw, 128px); padding: clamp(38px, 5vw, 70px); background: var(--yellow-soft); border: 1px solid rgba(231,164,45,.28); }
 .shop-callout h2 { margin: 0 0 12px; font: 400 clamp(33px, 4vw, 58px)/1 Georgia, serif; letter-spacing: -.03em; }
 .shop-callout p { color: var(--muted); font-size: 14px; line-height: 1.7; }
