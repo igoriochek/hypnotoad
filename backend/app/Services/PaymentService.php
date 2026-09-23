@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Services\PaymentProviders\MontonioProvider;
 use App\Services\PaymentProviders\PayseraProvider;
 use App\Services\PaymentProviders\MakeCommerceProvider;
+use App\Services\PaymentProviders\TestProvider;
 use App\Services\PaymentProviders\PaymentProviderInterface;
 use InvalidArgumentException;
 
@@ -24,6 +25,7 @@ class PaymentService
             'montonio' => new MontonioProvider(),
             'paysera' => new PayseraProvider(),
             'makecommerce' => new MakeCommerceProvider(),
+            'test' => new TestProvider(),
             default => throw new InvalidArgumentException("Unknown payment provider: {$name}"),
         };
     }

@@ -5,7 +5,7 @@ import { ArrowRight, BookOpen, CalendarHeart, Check, Layers3, Loader2, Minus, Pl
 import { contactEmail } from "@/lib/site-config";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import type { Locale } from "@/lib/site-content";
-import { fetchProducts, submitCheckout, type ApiProduct, type CheckoutItem } from "@/lib/api";
+import { fetchProducts, submitCheckout, type ApiProduct, type CheckoutItem, type ShippingInfo } from "@/lib/api";
 
 type Product = {
   readonly badge: string;
@@ -35,6 +35,12 @@ const labels = {
     errorNotPayable: "Šios paslaugos kaina derinama individualiai.",
     errorGeneric: "Įvyko klaida. Bandykite dar kartą.",
     errorEmpty: "Užpildykite el. paštą ir vardą.",
+    errorShipping: "Knygai reikalingas pristatymo adresas — užpildykite visus pristatymo laukus.",
+    shippingTitle: "Pristatymo adresas (knygai)",
+    shippingAddress: "Gatvė ir namo numeris",
+    shippingCity: "Miestas",
+    shippingPostal: "Pašto kodas",
+    shippingCountry: "Šalis",
     contactInstead: "Rašyti el. paštu",
     loadingProducts: "Kraunami produktai...",
     loadError: "Nepavyko įkelti produktų. Atnaujinkite puslapį.",
@@ -60,6 +66,12 @@ const labels = {
     errorNotPayable: "This service is priced individually.",
     errorGeneric: "An error occurred. Please try again.",
     errorEmpty: "Please fill in email and name.",
+    errorShipping: "The book requires a delivery address — please fill in all shipping fields.",
+    shippingTitle: "Delivery address (for the book)",
+    shippingAddress: "Street and house number",
+    shippingCity: "City",
+    shippingPostal: "Postal code",
+    shippingCountry: "Country",
     contactInstead: "Email instead",
     loadingProducts: "Loading products...",
     loadError: "Failed to load products. Please refresh.",
@@ -85,6 +97,12 @@ const labels = {
     errorNotPayable: "Цена этой услуги согласуется индивидуально.",
     errorGeneric: "Произошла ошибка. Попробуйте ещё раз.",
     errorEmpty: "Заполните email и имя.",
+    errorShipping: "Для книги нужен адрес доставки — заполните все поля доставки.",
+    shippingTitle: "Адрес доставки (для книги)",
+    shippingAddress: "Улица и номер дома",
+    shippingCity: "Город",
+    shippingPostal: "Почтовый индекс",
+    shippingCountry: "Страна",
     contactInstead: "Написать по почте",
     loadingProducts: "Загрузка продуктов...",
     loadError: "Не удалось загрузить продукты. Обновите страницу.",
@@ -103,6 +121,10 @@ export function ShopCatalog({ lang, note, sectionLabel }: { lang: Locale; produc
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [shipAddress, setShipAddress] = useState("");
+  const [shipCity, setShipCity] = useState("");
+  const [shipPostal, setShipPostal] = useState("");
+  const [shipCountry, setShipCountry] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -122,6 +144,7 @@ export function ShopCatalog({ lang, note, sectionLabel }: { lang: Locale; produc
 
   const hasNonPayable = selected.some((s) => s.product && !s.product.payable);
   const allPayable = selected.length > 0 && !hasNonPayable;
+  const needsShipping = selected.some((s) => s.product?.requires_shipping);
 
   const mailtoHref = useMemo(() => {
     const lines = selected.filter((s) => s.product).map(({ product, quantity }) => `• ${quantity} × ${product.title} — ${product.price_display}`);
@@ -150,9 +173,17 @@ export function ShopCatalog({ lang, note, sectionLabel }: { lang: Locale; produc
       setError(l.errorNotPayable);
       return;
     }
+    let shipping: ShippingInfo | undefined;
+    if (needsShipping) {
+      if (!shipAddress.trim() || !shipCity.trim() || !shipPostal.trim() || !shipCountry.trim()) {
+        setError(l.errorShipping);
+        return;
+      }
+      shipping = { address: shipAddress.trim(), city: shipCity.trim(), postal_code: shipPostal.trim(), country: shipCountry.trim() };
+    }
     setSubmitting(true);
     try {
-      const result = await submitCheckout(lang, items, { email: email.trim(), name: name.trim(), phone: phone.trim() || undefined });
+      const result = await submitCheckout(lang, items, { email: email.trim(), name: name.trim(), phone: phone.trim() || undefined }, shipping);
       window.location.href = result.checkout_url;
     } catch (e) {
       setError(e instanceof Error ? e.message : l.errorGeneric);
@@ -203,6 +234,15 @@ export function ShopCatalog({ lang, note, sectionLabel }: { lang: Locale; produc
                 <input type="email" placeholder={l.emailPlaceholder} value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
                 <input type="text" placeholder={l.namePlaceholder} value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
                 <input type="tel" placeholder={l.phonePlaceholder} value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" />
+                {needsShipping && (
+                  <fieldset className="cart-shipping">
+                    <legend>{l.shippingTitle}</legend>
+                    <input type="text" placeholder={l.shippingAddress} value={shipAddress} onChange={(e) => setShipAddress(e.target.value)} autoComplete="street-address" />
+                    <input type="text" placeholder={l.shippingCity} value={shipCity} onChange={(e) => setShipCity(e.target.value)} autoComplete="address-level2" />
+                    <input type="text" placeholder={l.shippingPostal} value={shipPostal} onChange={(e) => setShipPostal(e.target.value)} autoComplete="postal-code" />
+                    <input type="text" placeholder={l.shippingCountry} value={shipCountry} onChange={(e) => setShipCountry(e.target.value)} autoComplete="country-name" />
+                  </fieldset>
+                )}
                 {error && <p className="cart-error">{error}</p>}
                 {hasNonPayable && <p className="cart-warning">{l.errorNotPayable}</p>}
                 {allPayable ? (

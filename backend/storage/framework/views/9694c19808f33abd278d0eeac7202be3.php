@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ config('app.name') }}</title>
+    <title><?php echo e(config('app.name')); ?></title>
     <style>
         :root {
             --bg: #0a0c10;
@@ -193,21 +193,21 @@
     <div class="container">
         <div class="header">
             <div class="status-badge"><span class="dot"></span> Running</div>
-            <h1>{{ config('app.name') }}</h1>
-            <p class="subtitle">Payment backend &middot; Laravel {{ app()->version() }} &middot; PHP {{ PHP_VERSION }}</p>
+            <h1><?php echo e(config('app.name')); ?></h1>
+            <p class="subtitle">Payment backend &middot; Laravel <?php echo e(app()->version()); ?> &middot; PHP <?php echo e(PHP_VERSION); ?></p>
         </div>
 
         <div class="stats">
             <div class="stat">
-                <div class="stat-value" style="color: var(--green);">{{ $productCount }}</div>
+                <div class="stat-value" style="color: var(--green);"><?php echo e($productCount); ?></div>
                 <div class="stat-label">Products</div>
             </div>
             <div class="stat">
-                <div class="stat-value" style="color: var(--accent-hover);">{{ $orderCount }}</div>
+                <div class="stat-value" style="color: var(--accent-hover);"><?php echo e($orderCount); ?></div>
                 <div class="stat-label">Orders</div>
             </div>
             <div class="stat">
-                <div class="stat-value" style="color: var(--amber);">{{ $paidCount }}</div>
+                <div class="stat-value" style="color: var(--amber);"><?php echo e($paidCount); ?></div>
                 <div class="stat-label">Paid</div>
             </div>
         </div>
@@ -226,7 +226,7 @@
                 <span class="desc">API info (JSON)</span>
                 <span class="arrow">&rarr;</span>
             </a>
-            <a class="card" href="javascript:void(0)" onclick="alert('POST endpoint — use curl or a REST client:\n\ncurl -X POST {{ url('/') }}/api/checkout \\\n  -H \"Content-Type: application/json\" \\\n  -H \"Accept: application/json\" \\\n  -d \'{\"locale\":\"lt\",\"customer_email\":\"test@test.com\",\"customer_name\":\"Test\",\"items\":[{\"product_code\":\"consultation_single\",\"quantity\":1}]}\'')">
+            <a class="card" href="javascript:void(0)" onclick="alert('POST endpoint — use curl or a REST client:\n\ncurl -X POST <?php echo e(url('/')); ?>/api/checkout \\\n  -H \"Content-Type: application/json\" \\\n  -H \"Accept: application/json\" \\\n  -d \'{\"locale\":\"lt\",\"customer_email\":\"test@test.com\",\"customer_name\":\"Test\",\"items\":[{\"product_code\":\"consultation_single\",\"quantity\":1}]}\'')">
                 <span class="method method-post">POST</span>
                 <span class="path">/api/checkout</span>
                 <span class="desc">Create order &amp; get payment URL</span>
@@ -261,7 +261,7 @@
             <a class="card" href="/orders">
                 <span class="method method-get">GET</span>
                 <span class="path">/orders</span>
-                <span class="desc">All orders ({{ $orderCount }})</span>
+                <span class="desc">All orders (<?php echo e($orderCount); ?>)</span>
                 <span class="arrow">&rarr;</span>
             </a>
         </div>
@@ -277,25 +277,25 @@
         </div>
 
         <div class="section">
-            <div class="section-title">Product Catalog ({{ $productCount }} items)</div>
-            @foreach($products as $p)
+            <div class="section-title">Product Catalog (<?php echo e($productCount); ?> items)</div>
+            <?php $__currentLoopData = $products; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $p): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
             <div class="product">
-                <span class="product-num">{{ str_pad($p->sort_order, 2, '0', STR_PAD_LEFT) }}</span>
+                <span class="product-num"><?php echo e(str_pad($p->sort_order, 2, '0', STR_PAD_LEFT)); ?></span>
                 <div class="product-info">
-                    <div class="product-title">{{ $p->localizedTitle('lt') }}</div>
-                    <div class="product-desc">{{ $p->localizedDescription('lt') }}</div>
+                    <div class="product-title"><?php echo e($p->localizedTitle('lt')); ?></div>
+                    <div class="product-desc"><?php echo e($p->localizedDescription('lt')); ?></div>
                 </div>
-                @if($p->payable)
-                <span class="product-price">{{ $p->localizedPrice('lt') }}</span>
-                @else
-                <span class="product-price negotiate">{{ $p->localizedPrice('lt') }}</span>
-                @endif
+                <?php if($p->payable): ?>
+                <span class="product-price"><?php echo e($p->localizedPrice('lt')); ?></span>
+                <?php else: ?>
+                <span class="product-price negotiate"><?php echo e($p->localizedPrice('lt')); ?></span>
+                <?php endif; ?>
             </div>
-            @endforeach
+            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
         </div>
 
         <div class="footer">
-            Payment provider: <strong style="color: var(--text);">{{ config('payments.default', 'none') }}</strong>
+            Payment provider: <strong style="color: var(--text);"><?php echo e(config('payments.default', 'none')); ?></strong>
             <div class="footer-links">
                 <a href="/api/products?locale=lt">Products JSON</a>
                 <a href="/api/">API Info</a>
@@ -305,3 +305,4 @@
     </div>
 </body>
 </html>
+<?php /**PATH D:\Fork\hypnotoad\backend\resources\views/welcome.blade.php ENDPATH**/ ?>

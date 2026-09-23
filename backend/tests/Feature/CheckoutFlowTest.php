@@ -40,6 +40,10 @@ class CheckoutFlowTest extends TestCase
             'customer_email' => 'klientas@example.com',
             'customer_name' => 'Jonas Jonaitis',
             'customer_phone' => '+37061234567',
+            'shipping_address' => 'Gedimino pr. 1-1',
+            'shipping_city' => 'Vilnius',
+            'shipping_postal_code' => 'LT-01103',
+            'shipping_country' => 'Lietuva',
             'items' => [
                 ['product_code' => 'consultation_single', 'quantity' => 1],
                 ['product_code' => 'book_science_change', 'quantity' => 2],
@@ -54,6 +58,45 @@ class CheckoutFlowTest extends TestCase
         $this->assertEquals(OrderStatus::PAYMENT_STARTED->value, $order->status);
         $this->assertEquals(13200 + 6000, $order->total_cents); // 132€ + 2×30€
         $this->assertCount(2, $order->items);
+        $this->assertEquals('Vilnius', $order->shipping_city);
+    }
+
+    public function test_checkout_requires_shipping_address_for_shippable_items(): void
+    {
+        $response = $this->postJson('/api/checkout', [
+            'locale' => 'lt',
+            'customer_email' => 'klientas@example.com',
+            'customer_name' => 'Jonas Jonaitis',
+            'items' => [
+                ['product_code' => 'book_science_change', 'quantity' => 1],
+            ],
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['shipping_address', 'shipping_city', 'shipping_postal_code', 'shipping_country']);
+        $this->assertEquals(0, Order::count());
+    }
+
+    public function test_checkout_without_shipping_ok_for_services(): void
+    {
+        $mockProvider = \Mockery::mock(MontonioProvider::class);
+        $mockProvider->shouldReceive('createPayment')
+            ->once()
+            ->andReturn('https://checkout.montonio.com/pay/abc');
+        $mockProvider->shouldReceive('getProviderName')->andReturn('montonio');
+
+        $this->app->make(PaymentService::class)->setProvider($mockProvider);
+
+        $response = $this->postJson('/api/checkout', [
+            'locale' => 'lt',
+            'customer_email' => 'klientas@example.com',
+            'customer_name' => 'Jonas Jonaitis',
+            'items' => [
+                ['product_code' => 'consultation_single', 'quantity' => 1],
+            ],
+        ]);
+
+        $response->assertStatus(201);
     }
 
     public function test_checkout_rejects_non_payable_product(): void

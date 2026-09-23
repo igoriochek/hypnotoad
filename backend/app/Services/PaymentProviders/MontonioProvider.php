@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Log;
 
 class MontonioProvider implements PaymentProviderInterface
 {
-    private array $config;
+    protected array $config;
 
     public function __construct()
     {

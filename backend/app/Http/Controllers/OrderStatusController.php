@@ -14,23 +14,23 @@ class OrderStatusController extends Controller
      * Shows only the server-verified order status.
      * Success URL parameters are NOT proof of payment.
      */
-    public function success(Request $request): JsonResponse
+    public function success(Request $request): JsonResponse|\Illuminate\Http\Response
     {
         $orderNumber = $request->query('order');
 
         if (!$orderNumber) {
-            return response()->json(['error' => 'MISSING_ORDER_NUMBER'], 400);
+            return $this->respond($request, ['error' => 'MISSING_ORDER_NUMBER'], 400);
         }
 
         $order = Order::with('items')->where('order_number', $orderNumber)->first();
 
         if (!$order) {
-            return response()->json(['error' => 'ORDER_NOT_FOUND'], 404);
+            return $this->respond($request, ['error' => 'ORDER_NOT_FOUND'], 404);
         }
 
         // The actual status is determined by the webhook, not by visiting this URL.
         // We return the real DB status so the frontend can show the correct state.
-        return response()->json([
+        return $this->respond($request, [
             'order_number' => $order->order_number,
             'status' => $order->status,
             'is_paid' => $order->isPaid(),
@@ -47,6 +47,8 @@ class OrderStatusController extends Controller
             ]),
             'requires_shipping' => $order->requiresShipping(),
             'paid_at' => $order->paid_at?->toIso8601String(),
+            'locale' => $order->locale,
+            'page' => 'success',
         ]);
     }
 
@@ -54,28 +56,30 @@ class OrderStatusController extends Controller
      * GET /order/cancelled?order=...
      * Shows cancelled or incomplete payment.
      */
-    public function cancelled(Request $request): JsonResponse
+    public function cancelled(Request $request): JsonResponse|\Illuminate\Http\Response
     {
         $orderNumber = $request->query('order');
 
         if (!$orderNumber) {
-            return response()->json(['error' => 'MISSING_ORDER_NUMBER'], 400);
+            return $this->respond($request, ['error' => 'MISSING_ORDER_NUMBER'], 400);
         }
 
         $order = Order::where('order_number', $orderNumber)->first();
 
         if (!$order) {
-            return response()->json(['error' => 'ORDER_NOT_FOUND'], 404);
+            return $this->respond($request, ['error' => 'ORDER_NOT_FOUND'], 404);
         }
 
         // If the order is somehow paid (e.g. user visited cancelled URL after webhook
         // confirmed payment), still show the real status.
         if ($order->isPaid()) {
-            return response()->json([
+            return $this->respond($request, [
                 'order_number' => $order->order_number,
                 'status' => $order->status,
                 'is_paid' => true,
                 'message' => 'This order has actually been paid. Please check the success page.',
+                'locale' => $order->locale,
+                'page' => 'cancelled',
             ]);
         }
 
@@ -84,11 +88,26 @@ class OrderStatusController extends Controller
             $order->update(['status' => OrderStatus::CANCELLED->value]);
         }
 
-        return response()->json([
+        return $this->respond($request, [
             'order_number' => $order->order_number,
             'status' => $order->fresh()->status,
             'is_paid' => false,
             'message' => 'Payment was cancelled or not completed.',
+            'locale' => $order->locale,
+            'page' => 'cancelled',
         ]);
+    }
+
+    /**
+     * Content negotiation: browsers get a rendered HTML page,
+     * API clients (Accept: application/json) get JSON as before.
+     */
+    private function respond(Request $request, array $data, int $status = 200): JsonResponse|\Illuminate\Http\Response
+    {
+        if ($request->expectsJson()) {
+            return response()->json($data, $status);
+        }
+
+        return response()->view('order-status', $data, $status);
     }
 }

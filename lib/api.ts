@@ -42,10 +42,18 @@ export async function fetchProducts(locale: Locale): Promise<ApiProduct[]> {
   return res.json();
 }
 
+export type ShippingInfo = {
+  address: string;
+  city: string;
+  postal_code: string;
+  country: string;
+};
+
 export async function submitCheckout(
   locale: Locale,
   items: CheckoutItem[],
   customer: { email: string; name: string; phone?: string },
+  shipping?: ShippingInfo,
 ): Promise<CheckoutResponse> {
   const res = await fetch(`${API_BASE}/api/checkout`, {
     method: "POST",
@@ -59,6 +67,14 @@ export async function submitCheckout(
       customer_name: customer.name,
       customer_phone: customer.phone || undefined,
       items,
+      ...(shipping
+        ? {
+            shipping_address: shipping.address,
+            shipping_city: shipping.city,
+            shipping_postal_code: shipping.postal_code,
+            shipping_country: shipping.country,
+          }
+        : {}),
     }),
   });
 

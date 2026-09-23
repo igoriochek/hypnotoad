@@ -23,6 +23,13 @@ return [
             'secret_key' => env('PAYMENT_SECRET_KEY'),
             'webhook_secret' => env('PAYMENT_WEBHOOK_SECRET'),
         ],
+        // Local development only — fake gateway, no external calls.
+        'test' => [
+            'api_url' => '',
+            'access_key' => 'test',
+            'secret_key' => env('PAYMENT_SECRET_KEY', 'test-webhook-secret'),
+            'webhook_secret' => env('PAYMENT_WEBHOOK_SECRET', 'test-webhook-secret'),
+        ],
     ],
 
     'notification_email' => env('ORDER_NOTIFICATION_EMAIL', 'roxana71@protonmail.com'),
