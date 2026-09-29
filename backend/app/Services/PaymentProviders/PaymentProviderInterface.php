@@ -3,6 +3,7 @@
 namespace App\Services\PaymentProviders;
 
 use App\Models\Order;
+use Illuminate\Http\Request;
 
 interface PaymentProviderInterface
 {
@@ -17,13 +18,21 @@ interface PaymentProviderInterface
     public function createPayment(Order $order): string;
 
     /**
-     * Verify the incoming webhook signature and payload.
+     * Verify the incoming webhook signature.
      *
-     * @param  array  $headers  Request headers.
-     * @param  string  $rawBody  Raw request body.
+     * @param  Request  $request  The raw incoming webhook request.
      * @return bool
      */
-    public function verifyWebhook(array $headers, string $rawBody): bool;
+    public function verifyWebhook(Request $request): bool;
+
+    /**
+     * Extract the decoded payload from the webhook request.
+     * JSON body for POST providers, decoded query params for GET providers.
+     *
+     * @param  Request  $request
+     * @return array
+     */
+    public function extractPayload(Request $request): array;
 
     /**
      * Extract the provider's unique event ID from the webhook payload.

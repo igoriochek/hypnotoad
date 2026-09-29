@@ -43,7 +43,8 @@ Route::get('/products', function (ProductService $productService) {
 // Checkout — validates cart and creates payment
 Route::post('/checkout', [CheckoutController::class, 'checkout']);
 
-// Webhook — provider sends signed payment status updates here
+// Webhook — provider sends signed payment status updates here.
+// GET+POST: Paysera callbacks arrive as GET requests, others POST.
 // Must be excluded from CSRF protection (configured in bootstrap/app.php or VerifyCsrfToken)
-Route::post('/payments/webhook', [WebhookController::class, 'webhook'])
+Route::match(['GET', 'POST'], '/payments/webhook', [WebhookController::class, 'webhook'])
     ->name('payments.webhook');

@@ -3,10 +3,21 @@
 namespace App\Services\PaymentProviders;
 
 use App\Models\Order;
+use App\Services\OrderStatus;
 use App\Services\PaymentException;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Http\Request;
 
+/**
+ * Paysera WebToPay integration (spec v1.6).
+ *
+ * Flow: we build a signed redirect URL to https://www.paysera.com/pay/
+ * (no server-side API call). Paysera then:
+ *   - redirects the customer back to accepturl/cancelurl
+ *   - calls callbackurl (GET ?data=..&ss1=..&ss2=..) — the webhook that
+ *     actually confirms payment. Callback expects a plain "OK" response.
+ *
+ * Signing: data = base64url(http_build_query(params)), sign = md5(data . project_password).
+ */
 class PayseraProvider implements PaymentProviderInterface
 {
     private array $config;
@@ -18,129 +29,108 @@ class PayseraProvider implements PaymentProviderInterface
 
     public function createPayment(Order $order): string
     {
+        $projectId = $this->config['project_id'] ?? null;
+        $password = $this->config['project_password'] ?? null;
+
+        if (!$projectId || !$password) {
+            throw new PaymentException('Paysera is not configured (missing project_id or project_password)');
+        }
+
         $params = [
-            'projectid' => $this->config['access_key'],
+            'projectid' => $projectId,
             'orderid' => $order->order_number,
-            'amount' => number_format($order->total_cents / 100, 2, '.', ''),
-            'currency' => $order->currency,
             'accepturl' => config('payments.return_urls.success') . '?order=' . $order->order_number,
             'cancelurl' => config('payments.return_urls.cancelled') . '?order=' . $order->order_number,
             'callbackurl' => route('payments.webhook'),
-            'test' => config('app.env') === 'local' ? '1' : '0',
-            'payer_email' => $order->customer_email,
-            'payer_name' => $order->customer_name,
-            'payer_phone' => $order->customer_phone,
             'version' => '1.6',
+            'amount' => $order->total_cents,
+            'currency' => $order->currency,
+            'lang' => strtoupper($order->locale ?? 'lt'),
+            'paytext' => 'Užsakymas ' . $order->order_number,
+            'p_email' => $order->customer_email,
+            'test' => $this->config['test'] ? '1' : '0',
         ];
 
-        ksort($params);
-        $dataString = http_build_query($params);
-        $encoded = base64_encode($dataString);
-        $signature = md5($encoded . $this->config['secret_key']);
+        $data = self::base64UrlEncode(http_build_query($params));
+        $sign = md5($data . $password);
 
-        try {
-            $response = Http::asForm()
-                ->timeout(30)
-                ->post(rtrim($this->config['api_url'], '/') . '/api/checkout/v2/create', [
-                    'data' => $encoded,
-                    'ss1' => $signature,
-                ]);
+        $order->update([
+            'provider_payment_id' => null,
+            'provider_response' => json_encode(['provider' => 'paysera', 'test' => (bool) $this->config['test']]),
+            'status' => OrderStatus::PAYMENT_STARTED->value,
+        ]);
 
-            if (!$response->successful()) {
-                Log::error('Paysera API error', [
-                    'status' => $response->status(),
-                    'body' => $response->body(),
-                    'order' => $order->order_number,
-                ]);
-                throw new PaymentException('Paysera API returned ' . $response->status());
-            }
-
-            $data = $response->json();
-            $checkoutUrl = $data['redirect_url'] ?? $data['checkoutUrl'] ?? null;
-
-            if (!$checkoutUrl) {
-                throw new PaymentException('Paysera response missing redirect_url');
-            }
-
-            $paymentId = $data['transaction_id'] ?? $data['paymentId'] ?? null;
-
-            $order->update([
-                'provider_payment_id' => $paymentId,
-                'provider_response' => json_encode($data),
-                'status' => \App\Services\OrderStatus::PAYMENT_STARTED->value,
-            ]);
-
-            return $checkoutUrl;
-        } catch (PaymentException $e) {
-            throw $e;
-        } catch (\Exception $e) {
-            Log::error('Paysera request failed', [
-                'error' => $e->getMessage(),
-                'order' => $order->order_number,
-            ]);
-            throw new PaymentException('Paysera request failed: ' . $e->getMessage());
-        }
+        return rtrim($this->config['pay_url'], '/') . '/?data=' . $data . '&sign=' . $sign;
     }
 
-    public function verifyWebhook(array $headers, string $rawBody): bool
+    public function verifyWebhook(Request $request): bool
     {
-        // Paysera sends signed callbacks. The data is base64-encoded and
-        // signed with ss1 (MD5) and optionally ss2 (RSA).
-        $data = $headers['data'][0] ?? $_POST['data'] ?? null;
-        $ss1 = $headers['ss1'][0] ?? $_POST['ss1'] ?? null;
-
-        if (!$data || !$ss1) {
-            // Try to parse from raw body as form-encoded
-            parse_str($rawBody, $parsed);
-            $data = $parsed['data'] ?? null;
-            $ss1 = $parsed['ss1'] ?? null;
-        }
+        $data = $request->input('data');
+        $ss1 = $request->input('ss1');
 
         if (!$data || !$ss1) {
             return false;
         }
 
-        $expected = md5($data . $this->config['secret_key']);
+        $expected = md5($data . $this->config['project_password']);
 
         return hash_equals($expected, $ss1);
     }
 
+    public function extractPayload(Request $request): array
+    {
+        $data = $request->input('data');
+        if (!$data) {
+            return [];
+        }
+
+        $decoded = base64_decode(self::base64UrlDecode($data), true);
+        if ($decoded === false) {
+            return [];
+        }
+
+        parse_str($decoded, $payload);
+
+        return $payload;
+    }
+
     public function getEventId(array $payload): ?string
     {
-        return $payload['requestid'] ?? $payload['transactionId'] ?? null;
+        // Paysera retries the same callback until it gets "OK" — combine the
+        // payment id with status so a later status change is a new event.
+        $id = $payload['id'] ?? $payload['requestid'] ?? null;
+        if (!$id) {
+            return null;
+        }
+
+        return $id . ':' . ($payload['status'] ?? '');
     }
 
     public function getOrderNumber(array $payload): ?string
     {
-        return $payload['orderid'] ?? $payload['orderNumber'] ?? null;
+        return $payload['orderid'] ?? null;
     }
 
     public function isPaymentSuccessful(array $payload): bool
     {
-        $status = $this->getPaymentStatus($payload);
-        return in_array($status, ['1', 'PAID', 'COMPLETED', 'EXECUTED'], true);
+        // Paysera status: 0 = not paid, 1 = paid, 2/3 = pending/info.
+        return $this->getPaymentStatus($payload) === '1';
     }
 
     public function getPaymentStatus(array $payload): string
     {
-        // Paysera uses numeric status: 0 = not paid, 1 = paid, 2 = payment in progress
-        $status = $payload['status'] ?? $payload['paymentStatus'] ?? '0';
-        return (string) $status;
+        return (string) ($payload['status'] ?? '0');
     }
 
     public function getProviderPaymentId(array $payload): ?string
     {
-        return $payload['requestid'] ?? $payload['transactionId'] ?? null;
+        return isset($payload['id']) ? (string) $payload['id'] : ($payload['requestid'] ?? null);
     }
 
     public function getPaidAmountCents(array $payload): ?int
     {
-        $amount = $payload['amount'] ?? null;
-        if ($amount === null) {
-            return null;
-        }
-        // Paysera amount is in format "132.00"
-        return (int) round((float) $amount * 100);
+        // Paysera `amount` is already in cents.
+        return isset($payload['amount']) ? (int) $payload['amount'] : null;
     }
 
     public function getCurrency(array $payload): ?string
@@ -156,5 +146,16 @@ class PayseraProvider implements PaymentProviderInterface
     public function getProviderName(): string
     {
         return 'paysera';
+    }
+
+    /** Standard base64 → URL-safe base64 ('+/=' → '-_') as Paysera requires. */
+    private static function base64UrlEncode(string $value): string
+    {
+        return strtr(base64_encode($value), ['+' => '-', '/' => '_']);
+    }
+
+    private static function base64UrlDecode(string $value): string
+    {
+        return strtr($value, ['-' => '+', '_' => '/']);
     }
 }

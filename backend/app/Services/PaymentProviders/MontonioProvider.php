@@ -4,6 +4,7 @@ namespace App\Services\PaymentProviders;
 
 use App\Models\Order;
 use App\Services\PaymentException;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -81,21 +82,24 @@ class MontonioProvider implements PaymentProviderInterface
         }
     }
 
-    public function verifyWebhook(array $headers, string $rawBody): bool
+    public function verifyWebhook(Request $request): bool
     {
         // Montonio signs webhooks with HMAC-SHA256 using the secret key.
         // The signature is sent in the X-Montonio-Signature header.
-        $signature = $headers['x-montonio-signature'][0]
-            ?? $headers['X-Montonio-Signature'][0]
-            ?? null;
+        $signature = $request->header('X-Montonio-Signature');
 
         if (!$signature) {
             return false;
         }
 
-        $expected = hash_hmac('sha256', $rawBody, $this->config['secret_key']);
+        $expected = hash_hmac('sha256', $request->getContent(), $this->config['secret_key']);
 
         return hash_equals($expected, $signature);
+    }
+
+    public function extractPayload(Request $request): array
+    {
+        return $request->json()->all();
     }
 
     public function getEventId(array $payload): ?string

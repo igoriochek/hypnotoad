@@ -4,6 +4,7 @@ namespace App\Services\PaymentProviders;
 
 use App\Models\Order;
 use App\Services\PaymentException;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -81,17 +82,15 @@ class MakeCommerceProvider implements PaymentProviderInterface
         }
     }
 
-    public function verifyWebhook(array $headers, string $rawBody): bool
+    public function verifyWebhook(Request $request): bool
     {
         // MakeCommerce uses HMAC-SHA256 signature in the Authorization header
         // or a custom X-MakeCommerce-Signature header.
-        $signature = $headers['x-makecommerce-signature'][0]
-            ?? $headers['X-MakeCommerce-Signature'][0]
-            ?? null;
+        $signature = $request->header('X-MakeCommerce-Signature');
 
         if (!$signature) {
-            // Check Authorization header for Bearer token or MAC signature
-            $auth = $headers['authorization'][0] ?? null;
+            // Check Authorization header for "Signature <mac>" format
+            $auth = $request->header('Authorization');
             if ($auth && str_starts_with($auth, 'Signature ')) {
                 $signature = substr($auth, 10);
             }
@@ -101,9 +100,14 @@ class MakeCommerceProvider implements PaymentProviderInterface
             return false;
         }
 
-        $expected = hash_hmac('sha256', $rawBody, $this->config['webhook_secret']);
+        $expected = hash_hmac('sha256', $request->getContent(), $this->config['webhook_secret']);
 
         return hash_equals($expected, $signature);
+    }
+
+    public function extractPayload(Request $request): array
+    {
+        return $request->json()->all();
     }
 
     public function getEventId(array $payload): ?string

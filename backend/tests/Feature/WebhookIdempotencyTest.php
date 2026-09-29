@@ -48,6 +48,13 @@ class WebhookIdempotencyTest extends TestCase
 
         $mockProvider = \Mockery::mock(MontonioProvider::class);
         $mockProvider->shouldReceive('verifyWebhook')->andReturn(true);
+        $mockProvider->shouldReceive('extractPayload')->andReturn([
+            'uuid' => 'evt-001',
+            'status' => 'PAID',
+            'grandTotal' => '132.00',
+            'currency' => 'EUR',
+            'merchantData' => ['orderNumber' => 'SHK-TEST-001'],
+        ]);
         $mockProvider->shouldReceive('getEventId')->andReturn('evt-001');
         $mockProvider->shouldReceive('getOrderNumber')->andReturn('SHK-TEST-001');
         $mockProvider->shouldReceive('getEventType')->andReturn('payment_status_update');
@@ -94,6 +101,7 @@ class WebhookIdempotencyTest extends TestCase
 
         $mockProvider = \Mockery::mock(MontonioProvider::class);
         $mockProvider->shouldReceive('verifyWebhook')->andReturn(true);
+        $mockProvider->shouldReceive('extractPayload')->andReturn(['uuid' => 'evt-001']);
         $mockProvider->shouldReceive('getEventId')->andReturn('evt-001');
         // These should NOT be called because we short-circuit on duplicate
         $mockProvider->shouldNotReceive('getOrderNumber');
@@ -106,7 +114,7 @@ class WebhookIdempotencyTest extends TestCase
         ]);
 
         $response->assertStatus(200);
-        $response->assertJson(['status' => 'already_processed']);
+        $response->assertContent('OK');
     }
 
     public function test_webhook_with_invalid_signature_rejected(): void
@@ -115,6 +123,7 @@ class WebhookIdempotencyTest extends TestCase
 
         $mockProvider = \Mockery::mock(MontonioProvider::class);
         $mockProvider->shouldReceive('verifyWebhook')->andReturn(false);
+        $mockProvider->shouldReceive('extractPayload')->andReturn(['uuid' => 'evt-bad-sig']);
         $mockProvider->shouldReceive('getEventId')->andReturn('evt-bad-sig');
         $mockProvider->shouldReceive('getOrderNumber')->andReturn('SHK-TEST-001');
         $mockProvider->shouldReceive('getEventType')->andReturn('payment_status_update');
@@ -138,6 +147,7 @@ class WebhookIdempotencyTest extends TestCase
 
         $mockProvider = \Mockery::mock(MontonioProvider::class);
         $mockProvider->shouldReceive('verifyWebhook')->andReturn(true);
+        $mockProvider->shouldReceive('extractPayload')->andReturn(['uuid' => 'evt-mismatch', 'grandTotal' => '99.99']);
         $mockProvider->shouldReceive('getEventId')->andReturn('evt-mismatch');
         $mockProvider->shouldReceive('getOrderNumber')->andReturn('SHK-TEST-001');
         $mockProvider->shouldReceive('getEventType')->andReturn('payment_status_update');
@@ -165,6 +175,7 @@ class WebhookIdempotencyTest extends TestCase
     {
         $mockProvider = \Mockery::mock(MontonioProvider::class);
         $mockProvider->shouldReceive('verifyWebhook')->andReturn(true);
+        $mockProvider->shouldReceive('extractPayload')->andReturn(['uuid' => 'evt-unknown']);
         $mockProvider->shouldReceive('getEventId')->andReturn('evt-unknown');
         $mockProvider->shouldReceive('getOrderNumber')->andReturn('SHK-NONEXISTENT');
         $mockProvider->shouldReceive('getEventType')->andReturn('payment_status_update');

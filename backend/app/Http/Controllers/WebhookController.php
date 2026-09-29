@@ -20,16 +20,16 @@ class WebhookController extends Controller
         private PaymentService $paymentService,
     ) {}
 
-    public function webhook(Request $request): JsonResponse
+    public function webhook(Request $request): JsonResponse|\Illuminate\Http\Response
     {
-        $rawBody = $request->getContent();
-        $payload = $request->json()->all();
-        $headers = $request->headers->all();
+        // For GET callbacks (Paysera) the "body" is the query string.
+        $rawBody = $request->getContent() ?: $request->getQueryString() ?? '';
 
         $provider = $this->paymentService->getProvider();
+        $payload = $provider->extractPayload($request);
 
         // 1. Verify webhook signature
-        $verified = $provider->verifyWebhook($headers, $rawBody);
+        $verified = $provider->verifyWebhook($request);
 
         // 2. Extract event ID for idempotency
         $eventId = $provider->getEventId($payload);
@@ -49,7 +49,7 @@ class WebhookController extends Controller
                 'event_id' => $eventId,
                 'order_id' => $existingEvent->order_id,
             ]);
-            return response()->json(['status' => 'already_processed'], 200);
+            return response('OK', 200);
         }
 
         // 4. Find the order
@@ -154,7 +154,8 @@ class WebhookController extends Controller
             'verified' => $verified,
         ]);
 
-        return response()->json(['status' => 'processed'], 200);
+        // Paysera requires a literal "OK" body — anything else triggers retries.
+        return response('OK', 200);
     }
 
     private function sendConfirmationEmails(Order $order): void
